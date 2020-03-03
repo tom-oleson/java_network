@@ -4,15 +4,15 @@ import java.util.*;
 import java.util.concurrent.*;
 
 // test: 
-// $ javac EchoServer.java
-// $ java EchoServer
-// $ nc localhost 4000
+// $ javac RouteServer.java
+// $ java RouteServer
+// $ nc localhost 9000
 
-public class EchoServer {
+public class RouteServer {
 
-	public final static int PORT = 4000;
+	public final static int PORT = 9000;
 	public static final int SOCKET_TIMEOUT = 30000;
-	public static final int POOL_THREADS = 3;
+	public static final int POOL_THREADS = 200;
 
 	public static void info(String s) {
 		System.out.println("info: "+s);
@@ -22,35 +22,17 @@ public class EchoServer {
 		System.err.println("error: "+s);
 	}
 
-	public static String bytesToHex(byte[] bytes, int sz, int width) {
-		StringBuilder out = new StringBuilder();
+	public static String bytesToHex(byte[] bytes) {
 		StringBuilder hex = new StringBuilder();
-		StringBuilder ascii = new StringBuilder();
-		for(int index = 0; index < sz; index++) {
-			int value = bytes[index] & 0x00FF;
+		for (byte b : bytes) {
+			int value = b & 0x00FF;
 			String str = Integer.toHexString(value);
 			if (str.length() == 1)
 				hex.append('0');
 			hex.append(str);
 			hex.append(' ');
-
-			if(value < 0x20 || value > 0x7e) {
-				ascii.append('.');
-			} else {
-				ascii.append( (char) value);
-			}
-			
-			if(index > 0 && index % width == 0) {
-				out.append(hex);
-				out.append("| ");
-				out.append(ascii);
-				out.append("\n");
-
-				hex.setLength(0);
-				ascii.setLength(0);
-			}
 		}
-		return out.toString();
+		return hex.toString();
 	}
 
 	public static void main(String[] args) {
@@ -59,7 +41,7 @@ public class EchoServer {
 		ExecutorService pool = Executors.newFixedThreadPool(POOL_THREADS);
 
 		// create server socket
-		info("EchoServer listening on port "+PORT);
+		info("RouteServer listening on port "+PORT);
 		try (ServerSocket server = new ServerSocket(PORT)) {
 				server.setReuseAddress(true);
 			while (true) {
@@ -70,7 +52,7 @@ public class EchoServer {
 					connection.setReuseAddress(true);
 
 					// create task to process client socket
-					Callable<Void> task = new EchoTask(connection);
+					Callable<Void> task = new RouteTask(connection);
 
 					// submit to thread pool...
 					pool.submit(task);
@@ -84,11 +66,11 @@ public class EchoServer {
 		}
 	} 
 	
-	private static class EchoTask implements Callable<Void> {
+	private static class RouteTask implements Callable<Void> {
 
 		private Socket connection;
 	
-		EchoTask(Socket connection) {
+		RouteTask(Socket connection) {
 			this.connection = connection;
 		}
 
@@ -104,10 +86,10 @@ public class EchoServer {
 			return num_bytes;
 		}
 
-		public void processBytes(BufferedOutputStream bos, byte[] buf, int sz) throws IOException {
+		public void processBytes(BufferedOutputStream bos, byte[] buf) throws IOException {
 
 			// output to server console
-			System.out.print(bytesToHex(buf, sz, 16));
+			System.out.print(bytesToHex(buf));
 			System.out.write(buf);
 
 			// echo to client stream
@@ -124,7 +106,7 @@ public class EchoServer {
 				BufferedInputStream bis = new BufferedInputStream(connection.getInputStream());
 				BufferedOutputStream bos = new BufferedOutputStream(connection.getOutputStream());
 
-				String hello = "EchoServerHello\r\n";
+				String hello = "RouteServerHello\r\n";
 				bos.write(hello.getBytes());
 				bos.flush();
 
@@ -133,7 +115,7 @@ public class EchoServer {
 
 				do {
 					if((read_count = readBytes(bis, buf)) > 0) {				
-						processBytes(bos, buf, read_count);
+						processBytes(bos, buf);
 
 						// clear the buffer
 						Arrays.fill(buf, (byte) 0);
