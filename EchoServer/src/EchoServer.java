@@ -5,7 +5,8 @@ import java.util.concurrent.*;
 
 
 // test: 
-// $ java EchoServer&
+// $ javac EchoServer.java
+// $ java EchoServer
 // $ nc localhost 4000
 
 public class EchoServer {
@@ -14,8 +15,7 @@ public class EchoServer {
 	public final static int PORT = 4000;
 	public static final long SLEEP_VALUE = 100L;
 	public static final String ETX = "" + (char)0x03;
-	//public static final int SOCKET_TIMEOUT = 180000;
-	public static final int SOCKET_TIMEOUT = 5000;
+	public static final int SOCKET_TIMEOUT = 30000;
 	public static final int POOL_THREADS = 2;
 	public static final char EOT = 0x04;
 
@@ -27,7 +27,6 @@ public class EchoServer {
 	public static void err(String s) {
 		System.err.println("error: "+s);
 	}
-
 
 	public static void main(String[] args) {
 
@@ -57,11 +56,8 @@ public class EchoServer {
 		} catch (IOException ex) {
 			err("Couldn't start server");
 		}
-
-	} // end main
+	} 
 	
-
-	// private inner class
 	private static class EchoTask implements Callable<Void> {
 
 		private Socket connection;
@@ -69,6 +65,19 @@ public class EchoServer {
 		EchoTask(Socket connection) {
 			this.connection = connection;
 		}
+
+
+		public int readBytes(BufferedInputStream bis, byte[] buf) throws IOException {
+
+			int num_bytes, total_bytes = 0;
+			while(total_bytes != buf.length) {
+				num_bytes = bis.read(buf, total_bytes, buf.length - total_bytes);
+				if(num_bytes == -1) return -1; // EOF or error
+				total_bytes += num_bytes;
+			}
+			return total_bytes;
+		}
+
 
 		@Override
 		public Void call() {
@@ -92,17 +101,20 @@ public class EchoServer {
 				byte[] buf = new byte[2048];
 
 				do {
-					try {
-						read_count = is.read(buf);
-					} catch(SocketTimeoutException ex) {
-						// continue loop read loop
-						continue;
-					}						
+					//try {
+						//read_count = bis.read(buf);
+					//} catch(SocketTimeoutException ex) {
+						// continue read loop
+						//continue;
+					//}		
+
+					read_count = bis.read(buf);
+					//read_count = readBytes(bis, buf);				
 					
-					if(read_count == 0) {
-						info("read_count zero");
-						continue;
-					}
+					// if(read_count == 0) {
+					// 	info("read_count zero");
+					// 	continue;
+					// }
 
 					if(read_count > 0) {
 
