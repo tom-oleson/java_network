@@ -3,16 +3,21 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 
+
 // test: 
-// $ javac EchoServer.java
-// $ java EchoServer
+// $ java EchoServer&
 // $ nc localhost 4000
 
 public class EchoServer {
 
+
 	public final static int PORT = 4000;
-	public static final int SOCKET_TIMEOUT = 30000;
-	public static final int POOL_THREADS = 3;
+	public static final long SLEEP_VALUE = 100L;
+	public static final String ETX = "" + (char) 0x03;
+	public static final int SOCKET_TIMEOUT = 5000;  // 5 seconds
+	public static final int POOL_THREADS = 2;
+	public static final char EOT = 0x04;
+
 
 	public static void info(String s) {
 		System.out.println("info: "+s);
@@ -21,6 +26,7 @@ public class EchoServer {
 	public static void err(String s) {
 		System.err.println("error: "+s);
 	}
+
 
 	public static void main(String[] args) {
 
@@ -38,21 +44,23 @@ public class EchoServer {
 					connection.setSoTimeout(SOCKET_TIMEOUT);
 					connection.setReuseAddress(true);
 
-					// create task to process client socket
+					// create task to process client
 					Callable<Void> task = new EchoTask(connection);
 
 					// submit to thread pool...
 					pool.submit(task);
-					
-					//info("task submitted");
+					info("task submitted");
 
 				} catch (Exception ex) { err(ex.getMessage()); }
-			} 
+			} // end while
 		} catch (IOException ex) {
-			err("could not start server: "+ex.getMessage());
+			err("Couldn't start server");
 		}
-	} 
+
+	} // end main
 	
+
+	// private inner class
 	private static class EchoTask implements Callable<Void> {
 
 		private Socket connection;
@@ -61,36 +69,19 @@ public class EchoServer {
 			this.connection = connection;
 		}
 
-
-		public int readBytes(BufferedInputStream bis, byte[] buf) throws IOException {
-
-			// read until we get data or an error...
-			int num_bytes = 0;
-			while(num_bytes == 0) {
-				num_bytes = bis.read(buf);
-				if(num_bytes == -1) return -1;
-			} 
-			return num_bytes;
-		}
-
-		public void processBytes(BufferedOutputStream bos, byte[] buf) throws IOException {
-
-			// output to server console
-			System.out.write(buf);
-
-			// echo to client stream
-			bos.write(buf);
-			bos.flush();
-		}
-
-
 		@Override
 		public Void call() {
 
-			info("Running thread for "+connection.toString()+" [connection timeout="+SOCKET_TIMEOUT+"]");
+			String connString = connection.toString();
+
+			info("Running thread for "+connString+" [connection timeout="+SOCKET_TIMEOUT+"]");
 			try {
-				BufferedInputStream bis = new BufferedInputStream(connection.getInputStream());
-				BufferedOutputStream bos = new BufferedOutputStream(connection.getOutputStream());
+			
+				InputStream is = connection.getInputStream();
+				OutputStream os = connection.getOutputStream();
+
+				BufferedInputStream bis = new BufferedInputStream(is);
+				BufferedOutputStream bos = new BufferedOutputStream(os);
 
 				String hello = "EchoServerHello\r\n";
 				bos.write(hello.getBytes());
@@ -100,15 +91,34 @@ public class EchoServer {
 				byte[] buf = new byte[2048];
 
 				do {
-					if((read_count = readBytes(bis, buf)) > 0) {				
-						processBytes(bos, buf);
+					try {
+						read_count = bis.read(buf);
+					} catch(SocketTimeoutException ex) {
+						// continue read loop
+						continue;
+					}						
+					
+					if(read_count == 0) {
+						info("read_count zero");
+						continue;
+					}
+
+					if(read_count > 0) {
+
+						// server log input
+						System.out.write(buf);
+
+						// echo to client
+						os.write(buf);
+						os.flush();
 
 						// clear the buffer
 						Arrays.fill(buf, (byte) 0);
 					}
+
 					// EOF on client disconnect
-					else if(read_count < 0) {
-						info("***EOF***: "+connection.toString());
+					if(read_count < 0) {
+						//info("*EOF* on "+connString);
 						break;
 					}
 
@@ -119,9 +129,9 @@ public class EchoServer {
 			finally { 
 				try {
 					connection.close();
-					info("connection closed: "+connection.toString());
+					info("connection closed for "+connString);
 				}
-				catch (IOException ex) { err("close failed: "+ex.getMessage()); } 
+				catch (IOException ex) {} 
 			}
 
 			return null;
