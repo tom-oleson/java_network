@@ -11,7 +11,7 @@ import java.util.concurrent.*;
 public class RouteServer {
 
 	public final static int PORT = 9000;
-	public static final int SOCKET_TIMEOUT = 30000;
+	public static final int SOCKET_TIMEOUT = 180000;	// 180 seconds
 	public static final int POOL_THREADS = 200;
 
 	public static void info(String s) {
@@ -22,17 +22,61 @@ public class RouteServer {
 		System.err.println("error: "+s);
 	}
 
-	public static String bytesToHex(byte[] bytes) {
-		StringBuilder hex = new StringBuilder();
-		for (byte b : bytes) {
-			int value = b & 0x00FF;
-			String str = Integer.toHexString(value);
-			if (str.length() == 1)
-				hex.append('0');
-			hex.append(str);
-			hex.append(' ');
+	public static String formatHexRecord(byte[] bytes, int offset, int sz) {
+		StringBuilder builder = new StringBuilder();
+
+		for(int index = offset; index < sz; index++) {
+			int value = bytes[index] & 0x00FF;
+			builder.append(String.format("%02x ", value));
 		}
-		return hex.toString();
+		// line seperator
+		builder.append(String.format("%n"));
+		return builder.toString();
+	}
+
+	public static String formatHexDump(byte[] bytes, int offset, int sz, int width) {
+
+		StringBuilder builder = new StringBuilder();
+
+		for(int row_offset = offset; row_offset < offset + sz; row_offset += width) {
+
+			builder.append(String.format("%06d: ", row_offset));
+
+			StringBuilder ascii = new StringBuilder();
+
+			// row of hex digits of specified width followed by ascii field...
+			// non-printable characters are output as '.'
+			for(int index = 0; index < width; index++) {
+				if(row_offset + index < sz) {
+					int value = bytes[row_offset + index] & 0x00FF;
+					builder.append(String.format("%02x ", value));
+
+					if(value < 0x20 || value > 0x7e) {
+						ascii.append('.');
+					} else {
+						ascii.append( (char) value);
+					}
+
+				} else {
+					builder.append("   ");
+				}
+			}
+
+			if(row_offset < sz) {
+				builder.append(" | ");
+				builder.append(ascii);
+			}
+
+			// line seperator
+			builder.append(String.format("%n"));
+
+		}
+		return builder.toString();
+	}
+
+	Socket getRouteSocket (byte[] data) throws Exception {
+			// for now, just always point to the legacy TPS
+			return new Socket (TPS_SERVER, TPS_PORT);
 	}
 
 	public static void main(String[] args) {
@@ -41,9 +85,9 @@ public class RouteServer {
 		ExecutorService pool = Executors.newFixedThreadPool(POOL_THREADS);
 
 		// create server socket
-		info("RouteServer listening on port "+PORT);
 		try (ServerSocket server = new ServerSocket(PORT)) {
-				server.setReuseAddress(true);
+			info("RouteServer listening on port "+PORT);
+			server.setReuseAddress(true);
 			while (true) {
 				try {
 					// wait for client connection
@@ -56,8 +100,6 @@ public class RouteServer {
 
 					// submit to thread pool...
 					pool.submit(task);
-					
-					//info("task submitted");
 
 				} catch (Exception ex) { err(ex.getMessage()); }
 			} 
@@ -68,12 +110,13 @@ public class RouteServer {
 	
 	private static class RouteTask implements Callable<Void> {
 
-		private Socket connection;
+		private Socket connection = null;
+		private Socket route_socket = null;
 	
-		RouteTask(Socket connection) {
+		RouteTask(Socket connection, Socket route_socket) {
 			this.connection = connection;
+			this.route_socket = route_socket;
 		}
-
 
 		public int readBytes(BufferedInputStream bis, byte[] buf) throws IOException {
 
@@ -86,16 +129,23 @@ public class RouteServer {
 			return num_bytes;
 		}
 
-		public void processBytes(BufferedOutputStream bos, byte[] buf) throws IOException {
+		public void processBytes(BufferedOutputStream bos, byte[] buf, int sz) throws IOException {
 
 			// output to server console
-			System.out.print(bytesToHex(buf));
-			System.out.write(buf);
+			System.out.println("======");
+			System.out.print(formatHexDump(buf, 0, sz, 16));
+			System.out.print(formatHexRecord(buf, 0, sz));
 
-			// echo to client stream
-			bos.write(buf);
-			bos.flush();
+
+			// send data to all routes
+			routeBytes(buf, sz);
 		}
+
+
+		public void routeBytes(byte[] buf, int sz) throws IOException {
+
+		}
+
 
 
 		@Override
@@ -111,11 +161,11 @@ public class RouteServer {
 				bos.flush();
 
 				int read_count = 0;
-				byte[] buf = new byte[2048];
+				byte[] buf = new byte[4096];
 
 				do {
 					if((read_count = readBytes(bis, buf)) > 0) {				
-						processBytes(bos, buf);
+						processBytes(bos, buf, read_count);
 
 						// clear the buffer
 						Arrays.fill(buf, (byte) 0);
