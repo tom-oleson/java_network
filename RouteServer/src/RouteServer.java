@@ -159,21 +159,6 @@ public class RouteServer {
 			try { Thread.sleep(millis); } catch (InterruptedException e1) {	}
 		}
 
-		public static int readBytesWithTimeout(BufferedInputStream bis, byte[] buf, int timeout)  throws IOException  {
-		    long max_time = System.currentTimeMillis() + timeout;
-		    int num_bytes = 0;
-		    while (System.currentTimeMillis() < max_time && num_bytes == 0) {
-		    	if(bis.available() > 0) {
-			        num_bytes = readBytes(bis, buf);	
-			        if (num_bytes == -1) break;
-		    	}
-
-		    	sleep(1000);
-
-		    }
-     		return num_bytes;
- 		}
-
 
 		public void routeData(BufferedOutputStream terminal_bos, byte[] data, int sz) {
 
@@ -192,7 +177,7 @@ public class RouteServer {
 
 					// get route response and send back to terminal....
 					byte[] response = new byte[2048];
-					int response_sz = readBytesWithTimeout(route_bis, response, 6000);
+					int response_sz = readBytes(route_bis, response);
 					System.out.println("response_sz = "+response_sz);
 					if(response_sz > 0) {
 
