@@ -11,21 +11,13 @@ import java.util.concurrent.*;
 public class RouteServer {
 
 	public static final int PORT = 9000;
-	public static final int SOCKET_TIMEOUT = 30000;	
+	public static final int SOCKET_TIMEOUT = 180000;
 	public static final int POOL_THREADS = 200;
 
+	static final char EOT = 0x04;
 
 	static String tps_server = "localhost";
 	static int tps_port = 4000;
-
-	// this function will be expanded to handle multiple routes based on the request data
-	public static Socket getRouteSocket (byte[] data) throws IOException {
-		// for now, just always point to TPS
-		Socket tps_socket = new Socket (tps_server, tps_port);
-		tps_socket.setSoTimeout(SOCKET_TIMEOUT);
-		tps_socket.setReuseAddress(true);
-		return tps_socket;
-	}
 
 	public static void main(String[] args) {
 
@@ -115,16 +107,29 @@ public class RouteServer {
 		}
 		return builder.toString();
 	}
-	
-	
+		
 	private static class RouteTask implements Callable<Void> {
 
 		private Socket connection = null;
+		BufferedInputStream terminal_bis = null;
+		BufferedOutputStream terminal_bos = null; 
+
 		private Socket route_socket = null;
-	
+		BufferedInputStream route_bis = null;
+		BufferedOutputStream route_bos = null;
+
+
 		RouteTask(Socket connection) {
 			this.connection = connection;
-			this.route_socket = route_socket;
+		}
+
+		// this function will be expanded to handle multiple routes based on the request data
+		public Socket getRouteSocket (byte[] data) throws IOException {
+			// for now, just always point to TPS
+			Socket tps_socket = new Socket (tps_server, tps_port);
+			tps_socket.setSoTimeout(SOCKET_TIMEOUT);
+			tps_socket.setReuseAddress(true);
+			return tps_socket;
 		}
 
 		public static int readBytes(BufferedInputStream bis, byte[] buf, int sz) throws IOException {
@@ -144,51 +149,35 @@ public class RouteServer {
 			bos.flush();
 		}
 
-
 		public static void sleep(int millis) {
 			try { Thread.sleep(millis); } catch (InterruptedException e1) {	}
 		}
 
+		public int routeData(byte[] data, int sz) throws IOException {
 
-		public void routeData(BufferedOutputStream terminal_bos, byte[] data, int sz) {
+				// send copy of data to route...
+				writeBytes(route_bos, data, sz);
+				info("REQUEST ---> ROUTE (WRITE)");
 
-				// output to server console
-				System.out.println("====== TERM --> REQUEST --> ROUTE");
-				System.out.print(formatHexDump(data, 0, sz, 16));
-				System.out.print(formatHexRecord(data, 0, sz));
+				// get route response and send back to terminal....
+				byte[] resp = new byte[2048];
+				int response_sz = readBytes(route_bis, resp, resp.length);
+				if(response_sz > 0) {
 
-				try {
-					// get connection to the route server for this data and send it a copy of the data...
-					Socket route_socket = RouteServer.getRouteSocket(data);
-					BufferedInputStream route_bis = new BufferedInputStream(route_socket.getInputStream());
-					BufferedOutputStream route_bos = new BufferedOutputStream(route_socket.getOutputStream());
-					writeBytes(route_bos, data, sz);
+					// output to server console...
+					info("====== ROUTE --> RESPONSE (READ)");
+					System.out.print(formatHexDump(resp, 0, response_sz, 16));
+					System.out.print(formatHexRecord(resp, 0, response_sz));
 
-
-					// get route response and send back to terminal....
-					byte[] resp = new byte[2048];
-					int response_sz = readBytes(route_bis, resp, resp.length);
-					System.out.println("response_sz = "+response_sz);
-					if(response_sz > 0) {
-
-						// output to server console
-						System.out.println("====== TERM <-- RESPONSE <-- ROUTE");
-						System.out.print(formatHexDump(resp, 0, response_sz, 16));
-						System.out.print(formatHexRecord(resp, 0, response_sz));
-
-						// write copy of response to terminal...
-						writeBytes(terminal_bos, resp, response_sz); 
-					}
-
-				} catch(IOException ex) {
-					err("error in routeData:" + ex.getMessage());
+					// write copy of response to terminal...
+					writeBytes(terminal_bos, resp, response_sz); 
+					info("RESPONSE --> TERMINAL (WRITE)");
 				}
-				finally {
-					try {
-						route_socket.close();
-						info("route socket closed: "+route_socket.toString());
-					} catch (IOException ex) { err("close failed: "+ex.getMessage()); }
+				else if(response_sz == -1) {
+					err("error reading route response");
 				}
+
+				return response_sz;
 		}
 
 		@Override
@@ -197,22 +186,35 @@ public class RouteServer {
 			info("Running thread for "+connection.toString()+" [connection timeout="+SOCKET_TIMEOUT+"]");
 			try {
 				// get streams to the connected client...
-				BufferedInputStream bis = new BufferedInputStream(connection.getInputStream());
-				BufferedOutputStream bos = new BufferedOutputStream(connection.getOutputStream());
-
-				// String hello = "RouteServerHello\r\n";
-				// bos.write(hello.getBytes());
-				// bos.flush();
+				terminal_bis = new BufferedInputStream(connection.getInputStream());
+				terminal_bos = new BufferedOutputStream(connection.getOutputStream());
 
 				int read_count = 0;
 				byte[] data = new byte[4096];
 
 				while(true) {
-					System.out.println("read");
-					if((read_count = readBytes(bis, data, data.length)) > 0) {	
+					if((read_count = readBytes(terminal_bis, data, data.length)) > 0) {	
 
-						routeData(bos, data, read_count);
-						System.out.println("read_count = "+read_count);
+						// output to server console
+						info("====== TERMINAL --> REQUEST (READ)");
+						System.out.print(formatHexDump(data, 0, read_count, 16));
+						System.out.print(formatHexRecord(data, 0, read_count));						
+
+						// if this is the first time through the loop, connect to route
+						if(route_socket == null) {
+							// get connection to the route server for this data...
+							route_socket = getRouteSocket(data);
+							route_bis = new BufferedInputStream(route_socket.getInputStream());
+							route_bos = new BufferedOutputStream(route_socket.getOutputStream());
+							info("Connected to route: "+route_socket.toString());							
+						}
+
+						if( routeData(data, read_count) == -1)
+							break;
+
+						// EOT from client signals end of terminal session...
+						if (data.length == 1 && data[0] == EOT)
+							break;
 
 						// clear the buffer
 						Arrays.fill(data, (byte) 0);
@@ -226,11 +228,19 @@ public class RouteServer {
 			}
 			catch (IOException ex) { err(ex.getMessage()); }
 			finally { 
+
+				try {
+					if(route_socket != null) {
+						route_socket.close();
+						info("route socket closed: "+route_socket);
+					}
+				} catch (IOException ex) { err("route socket close failed: "+ex.getMessage()); }
+
 				try {
 					connection.close();
 					info("connection closed: "+connection.toString());
 				}
-				catch (IOException ex) { err("close failed: "+ex.getMessage()); } 
+				catch (IOException ex) { err("connection close failed: "+ex.getMessage()); } 
 			}
 
 			return null;
