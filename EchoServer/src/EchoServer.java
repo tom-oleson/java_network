@@ -100,8 +100,10 @@ public class EchoServer {
 			System.out.print(formatHexDump(buf, 0, sz, 16));
 			System.out.print(formatHexRecord(buf, 0, sz));
 
-			// echo to client stream
-			bos.write(buf);
+			// echo to client stream as response
+			String resp = "response: ";
+			bos.write(resp.getBytes());
+			bos.write(buf, 0, sz);
 			bos.flush();
 		}
 
@@ -113,9 +115,9 @@ public class EchoServer {
 				BufferedInputStream bis = new BufferedInputStream(connection.getInputStream());
 				BufferedOutputStream bos = new BufferedOutputStream(connection.getOutputStream());
 
-				String hello = "EchoServerHello\r\n";
-				bos.write(hello.getBytes());
-				bos.flush();
+				// String hello = "EchoServerHello\r\n";
+				// bos.write(hello.getBytes());
+				// bos.flush();
 
 				int read_count = 0;
 				byte[] buf = new byte[4096];

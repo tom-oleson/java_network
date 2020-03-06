@@ -11,31 +11,20 @@ import java.util.concurrent.*;
 public class RouteServer {
 
 	public static final int PORT = 9000;
-	public static final int SOCKET_TIMEOUT = 180000;	// 180 seconds
+	public static final int SOCKET_TIMEOUT = 30000;	
 	public static final int POOL_THREADS = 200;
 
 
 	static String tps_server = "localhost";
 	static int tps_port = 4000;
-	static Socket tps_socket = null;
 
 	// this function will be expanded to handle multiple routes based on the request data
 	public static Socket getRouteSocket (byte[] data) throws IOException {
 		// for now, just always point to TPS
-		if(tps_socket == null) {
-			tps_socket = new Socket (tps_server, tps_port);
-			tps_socket.setSoTimeout(SOCKET_TIMEOUT);
-			tps_socket.setReuseAddress(true);
-		}
+		Socket tps_socket = new Socket (tps_server, tps_port);
+		tps_socket.setSoTimeout(SOCKET_TIMEOUT);
+		tps_socket.setReuseAddress(true);
 		return tps_socket;
-	}
-
-	public void closeRouteSocket(Socket s) {
-		
-		try { s.close(); } catch(IOException ex) { err("failed to close route socket"); }
-		if(s == tps_socket) {
-			tps_socket = null;
-		}
 	}
 
 	public static void main(String[] args) {
@@ -138,13 +127,14 @@ public class RouteServer {
 			this.route_socket = route_socket;
 		}
 
-		public static int readBytes(BufferedInputStream bis, byte[] buf) throws IOException {
+		public static int readBytes(BufferedInputStream bis, byte[] buf, int sz) throws IOException {
 
 			// read until we get data or an error...
 			int num_bytes = 0;
-			while(num_bytes == 0) {
-				num_bytes = bis.read(buf);
+			while(true) {
+				num_bytes = bis.read(buf, 0, sz);
 				if(num_bytes == -1) return -1;
+				if(num_bytes > 0) break;
 			} 
 			return num_bytes;
 		}
@@ -176,23 +166,28 @@ public class RouteServer {
 
 
 					// get route response and send back to terminal....
-					byte[] response = new byte[2048];
-					int response_sz = readBytes(route_bis, response);
+					byte[] resp = new byte[2048];
+					int response_sz = readBytes(route_bis, resp, resp.length);
 					System.out.println("response_sz = "+response_sz);
 					if(response_sz > 0) {
 
 						// output to server console
 						System.out.println("====== TERM <-- RESPONSE <-- ROUTE");
-						System.out.print(formatHexDump(response, 0, response_sz, 16));
-						System.out.print(formatHexRecord(response, 0, response_sz));
+						System.out.print(formatHexDump(resp, 0, response_sz, 16));
+						System.out.print(formatHexRecord(resp, 0, response_sz));
 
-						writeBytes(terminal_bos, response, response_sz); 
+						// write copy of response to terminal...
+						writeBytes(terminal_bos, resp, response_sz); 
 					}
-
-
 
 				} catch(IOException ex) {
 					err("error in routeData:" + ex.getMessage());
+				}
+				finally {
+					try {
+						route_socket.close();
+						info("route socket closed: "+route_socket.toString());
+					} catch (IOException ex) { err("close failed: "+ex.getMessage()); }
 				}
 		}
 
@@ -212,9 +207,12 @@ public class RouteServer {
 				int read_count = 0;
 				byte[] data = new byte[4096];
 
-				do {
-					if((read_count = readBytes(bis, data)) > 0) {				
+				while(true) {
+					System.out.println("read");
+					if((read_count = readBytes(bis, data, data.length)) > 0) {	
+
 						routeData(bos, data, read_count);
+						System.out.println("read_count = "+read_count);
 
 						// clear the buffer
 						Arrays.fill(data, (byte) 0);
@@ -224,8 +222,7 @@ public class RouteServer {
 						info("***EOF***: "+connection.toString());
 						break;
 					}
-				} while(true);
-			
+				}
 			}
 			catch (IOException ex) { err(ex.getMessage()); }
 			finally { 
