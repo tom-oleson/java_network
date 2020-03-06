@@ -15,11 +15,11 @@ public class EchoServer {
 	public static final int POOL_THREADS = 3;
 
 	public static void info(String s) {
-		System.out.println("info: "+s);
+		System.out.println(System.currentTimeMillis()+" info: "+s);
 	}
 
 	public static void err(String s) {
-		System.err.println("error: "+s);
+		System.err.println(System.currentTimeMillis()+" error: "+s);
 	}
 
 	public static String formatHexRecord(byte[] bytes, int offset, int sz) {

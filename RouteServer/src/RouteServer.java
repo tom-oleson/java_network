@@ -30,7 +30,7 @@ public class RouteServer {
 			server.setReuseAddress(true);
 			while (true) {
 				try {
-					// wait for client connection
+					// wait for client connection...
 					Socket connection = server.accept();
 					connection.setSoTimeout(SOCKET_TIMEOUT);
 					connection.setReuseAddress(true);
@@ -49,11 +49,11 @@ public class RouteServer {
 	} 
 
 	public static void info(String s) {
-		System.out.println("info: "+s);
+		System.out.println(System.currentTimeMillis()+" info: "+s);
 	}
 
 	public static void err(String s) {
-		System.err.println("error: "+s);
+		System.err.println(System.currentTimeMillis()+" error: "+s);
 	}
 
 	public static String formatHexRecord(byte[] bytes, int offset, int sz) {
@@ -157,27 +157,27 @@ public class RouteServer {
 
 				// send copy of data to route...
 				writeBytes(route_bos, data, sz);
-				info("REQUEST ---> ROUTE (WRITE)");
+				info("| REQUEST ---> ROUTE (WRITE)");
 
 				// get route response and send back to terminal....
+				int response_count = 0;
 				byte[] resp = new byte[2048];
-				int response_sz = readBytes(route_bis, resp, resp.length);
-				if(response_sz > 0) {
+				if((response_count = readBytes(route_bis, resp, resp.length)) > 0) {
 
 					// output to server console...
-					info("====== ROUTE --> RESPONSE (READ)");
-					System.out.print(formatHexDump(resp, 0, response_sz, 16));
-					System.out.print(formatHexRecord(resp, 0, response_sz));
+					info("| ROUTE --> RESPONSE (READ)");
+					System.out.print(formatHexDump(resp, 0, response_count, 16));
+					System.out.print(formatHexRecord(resp, 0, response_count));
 
 					// write copy of response to terminal...
-					writeBytes(terminal_bos, resp, response_sz); 
-					info("RESPONSE --> TERMINAL (WRITE)");
+					writeBytes(terminal_bos, resp, response_count); 
+					info("| RESPONSE --> TERMINAL (WRITE)");
 				}
-				else if(response_sz == -1) {
-					err("error reading route response");
+				else if(response_count < 0) {
+					err("*EOF* reading route response: "+route_socket.toString());
 				}
 
-				return response_sz;
+				return response_count;
 		}
 
 		@Override
@@ -209,7 +209,7 @@ public class RouteServer {
 							info("Connected to route: "+route_socket.toString());							
 						}
 
-						if( routeData(data, read_count) == -1)
+						if(routeData(data, read_count) == -1)
 							break;
 
 						// EOT from client signals end of terminal session...
@@ -228,6 +228,9 @@ public class RouteServer {
 			}
 			catch (IOException ex) { err(ex.getMessage()); }
 			finally { 
+
+				// allow time for socket buffers to empty...
+				sleep(1000);
 
 				try {
 					if(route_socket != null) {
