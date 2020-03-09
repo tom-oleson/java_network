@@ -28,24 +28,14 @@ public class RouteServer {
 		return def;
 	}
 
-	public static String getStrProperty(String key, String def) {
-		String value = System.getProperty(key);
-		if(value != null) {
-			return value;
-		}
-		return def;
-	}
-
 	public static void main(String[] args) {
-
 
 		PORT = getIntProperty("server.port", PORT);
 		SOCKET_TIMEOUT = getIntProperty("socket.timeout", SOCKET_TIMEOUT);
 		POOL_THREADS = getIntProperty("pool.threads", POOL_THREADS);
 
-		tps_server = getStrProperty("tsp.server", tps_server);
+		tps_server = System.getProperty("tps.server", tps_server);
 		tps_port = getIntProperty("tps.port", tps_port);
-
 
 		info(String.format("server.port=%d, socket.timeout=%d, pool.threads=%d, tps.server=%s, tps.port=%d",
 			PORT, SOCKET_TIMEOUT, POOL_THREADS, tps_server, tps_port));
