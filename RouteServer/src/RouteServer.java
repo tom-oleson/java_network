@@ -10,16 +10,45 @@ import java.util.concurrent.*;
 
 public class RouteServer {
 
-	public static final int PORT = 9000;
-	public static final int SOCKET_TIMEOUT = 180000;
-	public static final int POOL_THREADS = 200;
+	public static int PORT = 9000;
+	public static int SOCKET_TIMEOUT = 180000;
+	public static int POOL_THREADS = 200;
 
 	static final char EOT = 0x04;
 
 	static String tps_server = "localhost";
 	static int tps_port = 4000;
 
+
+	public static int getIntProperty(String key, int def) {
+		String value = System.getProperty(key);
+		if(value != null) {
+			return Integer.parseInt(value);
+		}
+		return def;
+	}
+
+	public static String getStrProperty(String key, String def) {
+		String value = System.getProperty(key);
+		if(value != null) {
+			return value;
+		}
+		return def;
+	}
+
 	public static void main(String[] args) {
+
+
+		PORT = getIntProperty("server.port", PORT);
+		SOCKET_TIMEOUT = getIntProperty("socket.timeout", SOCKET_TIMEOUT);
+		POOL_THREADS = getIntProperty("pool.threads", POOL_THREADS);
+
+		tps_server = getStrProperty("tsp.server", tps_server);
+		tps_port = getIntProperty("tps.port", tps_port);
+
+
+		info(String.format("server.port=%d, socket.timeout=%d, pool.threads=%d, tps.server=%s, tps.port=%d",
+			PORT, SOCKET_TIMEOUT, POOL_THREADS, tps_server, tps_port));
 
 		// create a pool of threads...
 		ExecutorService pool = Executors.newFixedThreadPool(POOL_THREADS);
@@ -167,7 +196,7 @@ public class RouteServer {
 					// output to server console...
 					info("| ROUTE --> RESPONSE (READ)");
 					System.out.print(formatHexDump(resp, 0, response_count, 16));
-					System.out.print(formatHexRecord(resp, 0, response_count));
+					//System.out.print(formatHexRecord(resp, 0, response_count));
 
 					// write copy of response to terminal...
 					writeBytes(terminal_bos, resp, response_count); 
@@ -195,10 +224,12 @@ public class RouteServer {
 				while(true) {
 					if((read_count = readBytes(terminal_bis, data, data.length)) > 0) {	
 
+
 						// output to server console
-						info("====== TERMINAL --> REQUEST (READ)");
+						info("======");
+						info("| TERMINAL --> REQUEST (READ)");
 						System.out.print(formatHexDump(data, 0, read_count, 16));
-						System.out.print(formatHexRecord(data, 0, read_count));						
+						//System.out.print(formatHexRecord(data, 0, read_count));						
 
 						// if this is the first time through the loop, connect to route
 						if(route_socket == null) {
