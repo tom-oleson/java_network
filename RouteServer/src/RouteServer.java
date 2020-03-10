@@ -68,11 +68,11 @@ public class RouteServer {
 	} 
 
 	public static void info(String s) {
-		System.out.println(System.currentTimeMillis()+" info: "+s);
+		System.out.println(System.currentTimeMillis()+" ["+Thread.currentThread().getId()+"] info: "+s);
 	}
 
 	public static void err(String s) {
-		System.err.println(System.currentTimeMillis()+" error: "+s);
+		System.err.println(System.currentTimeMillis()+" ["+Thread.currentThread().getId()+"] error: "+s);
 	}
 
 	public static String formatHexRecord(byte[] bytes, int offset, int sz) {
@@ -137,6 +137,7 @@ public class RouteServer {
 		BufferedInputStream route_bis = null;
 		BufferedOutputStream route_bos = null;
 
+		long tid;	// thread id
 
 		RouteTask(Socket connection) {
 			this.connection = connection;
@@ -203,6 +204,7 @@ public class RouteServer {
 		public Void call() {
 
 			info("Running thread for "+connection.toString()+" [connection timeout="+SOCKET_TIMEOUT+"]");
+			
 			try {
 				// get streams to the connected client...
 				terminal_bis = new BufferedInputStream(connection.getInputStream());
