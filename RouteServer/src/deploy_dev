@@ -1,0 +1,2 @@
+#!/bin/bash
+scp *.class tpsadmin@172.25.1.13:~/sibi/Router
