@@ -15,11 +15,11 @@ public class EchoServer {
 	public static final int POOL_THREADS = 3;
 
 	public static void info(String s) {
-		System.out.println(System.currentTimeMillis()+" info: "+s);
+		System.out.println(System.currentTimeMillis()+" ["+Thread.currentThread().getId()+"] info: "+s);
 	}
 
 	public static void err(String s) {
-		System.err.println(System.currentTimeMillis()+" error: "+s);
+		System.err.println(System.currentTimeMillis()+" ["+Thread.currentThread().getId()+"] error: "+s);
 	}
 
 	public static String formatHexRecord(byte[] bytes, int offset, int sz) {
@@ -96,15 +96,17 @@ public class EchoServer {
 		public void processBytes(BufferedOutputStream bos, byte[] buf, int sz) throws IOException {
 
 			// output to server console
-			System.out.println("======");
+			info("======");
+			info("| REQUEST (READ)");
 			System.out.print(formatHexDump(buf, 0, sz, 16));
-			System.out.print(formatHexRecord(buf, 0, sz));
+			//System.out.print(formatHexRecord(buf, 0, sz));
 
 			// echo to client stream as response
 			String resp = "response: ";
 			bos.write(resp.getBytes());
 			bos.write(buf, 0, sz);
 			bos.flush();
+			info("| RESPONSE (WRITE)");
 		}
 
 		@Override
