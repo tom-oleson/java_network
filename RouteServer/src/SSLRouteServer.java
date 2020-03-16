@@ -4,14 +4,13 @@ import java.util.*;
 import java.util.concurrent.*;
 
 // test: 
-// $ javac RouteServer.java
-// $ java RouteServer
+// $ javac SSLRouteServer.java
+// $ java SSLRouteServer
 // $ nc localhost 9000
 
-public class RouteServer {
+public class SSLRouteServer {
 
-	public static int PORT = 4000;
-	public static int SSL_PORT = 9000;
+	public static int PORT = 9000;
 	public static int SOCKET_TIMEOUT = 180000;
 	public static int POOL_THREADS = 200;
 
@@ -32,7 +31,6 @@ public class RouteServer {
 	public static void main(String[] args) {
 
 		PORT = getIntProperty("server.port", PORT);
-		SSL_PORT = getIntProperty("server.ssl.port", SSL_PORT);
 		SOCKET_TIMEOUT = getIntProperty("socket.timeout", SOCKET_TIMEOUT);
 		POOL_THREADS = getIntProperty("pool.threads", POOL_THREADS);
 
@@ -46,8 +44,12 @@ public class RouteServer {
 		ExecutorService pool = Executors.newFixedThreadPool(POOL_THREADS);
 
 		// create server socket
-		try (ServerSocket server = new ServerSocket(PORT)) {
-			info("RouteServer listening on port "+PORT);
+		try (
+			ServerSocketFactory ssf = SSLServerSocketFactory.getDefault();
+			ServerSocket server = ssf.createServerSocket(PORT); 
+
+			) {
+			info("SSLRouteServer listening on port "+PORT);
 			server.setReuseAddress(true);
 			while (true) {
 				try {
