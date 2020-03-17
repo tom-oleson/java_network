@@ -1,7 +1,10 @@
 import java.net.*;
+import java.security.*;
+import java.security.cert.CertificateException;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
+import javax.net.ssl.*;
 
 // test: 
 // $ javac SSLRouteServer.java
@@ -40,14 +43,29 @@ public class SSLRouteServer {
 		info(String.format("server.port=%d, socket.timeout=%d, pool.threads=%d, tps.server=%s, tps.port=%d",
 			PORT, SOCKET_TIMEOUT, POOL_THREADS, tps_server, tps_port));
 
+		SSLContext ctx = null;
+		KeyManagerFactory kmf = null;
+		KeyStore ks = null;
+		SSLServerSocketFactory ssf = null;
+
+		try {
+
+			ctx = SSLContext.getInstance("TLSv1.2");
+			kmf = KeyManagerFactory.getInstance("SunX509");
+			ks = KeyStore.getInstance("JKS");
+			ssf = ctx.getServerSocketFactory();
+
+		} catch (KeyStoreException | NoSuchAlgorithmException ex) {
+				err(ex.getMessage());
+				//return;
+		}
+
 		// create a pool of threads...
 		ExecutorService pool = Executors.newFixedThreadPool(POOL_THREADS);
 
 		// create server socket
 		try (
-			ServerSocketFactory ssf = SSLServerSocketFactory.getDefault();
-			ServerSocket server = ssf.createServerSocket(PORT); 
-
+			SSLServerSocket server = (SSLServerSocket) ssf.createServerSocket(PORT); 
 			) {
 			info("SSLRouteServer listening on port "+PORT);
 			server.setReuseAddress(true);

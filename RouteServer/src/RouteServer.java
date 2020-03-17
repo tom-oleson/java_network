@@ -11,7 +11,6 @@ import java.util.concurrent.*;
 public class RouteServer {
 
 	public static int PORT = 4000;
-	public static int SSL_PORT = 9000;
 	public static int SOCKET_TIMEOUT = 180000;
 	public static int POOL_THREADS = 200;
 
@@ -32,7 +31,6 @@ public class RouteServer {
 	public static void main(String[] args) {
 
 		PORT = getIntProperty("server.port", PORT);
-		SSL_PORT = getIntProperty("server.ssl.port", SSL_PORT);
 		SOCKET_TIMEOUT = getIntProperty("socket.timeout", SOCKET_TIMEOUT);
 		POOL_THREADS = getIntProperty("pool.threads", POOL_THREADS);
 
