@@ -44,20 +44,22 @@ public class SSLRouteServer {
 			PORT, SOCKET_TIMEOUT, POOL_THREADS, tps_server, tps_port));
 
 		SSLContext ctx = null;
-		KeyManagerFactory kmf = null;
-		KeyStore ks = null;
 		SSLServerSocketFactory ssf = null;
 
 		try {
 
+			char[] password = "password".toCharArray();
+			KeyStore ks = KeyStore.getInstance("JKS");
+			ks.load(new FileInputStream("keystore"), password);
+			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+			kmf.init(ks, password);
+
 			ctx = SSLContext.getInstance("TLSv1.2");
-			kmf = KeyManagerFactory.getInstance("SunX509");
-			ks = KeyStore.getInstance("JKS");
 			ssf = ctx.getServerSocketFactory();
 
-		} catch (KeyStoreException | NoSuchAlgorithmException ex) {
+		} catch (IOException | KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException ex) {
 				err(ex.getMessage());
-				//return;
+				return;
 		}
 
 		// create a pool of threads...
