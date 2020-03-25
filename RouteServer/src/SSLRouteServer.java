@@ -9,7 +9,7 @@ import javax.net.ssl.*;
 // test: 
 // $ javac SSLRouteServer.java
 // $ java SSLRouteServer
-// $ openssl s_client -connect localhost:9000
+// $ openssl s_client -connect localhost:9000 -servername localhost CAfile ./cert.pem
 
 public class SSLRouteServer {
 
@@ -50,12 +50,12 @@ public class SSLRouteServer {
 
 			char[] password = "changeit$".toCharArray();
 			KeyStore ks = KeyStore.getInstance("JKS");
-			ks.load(new FileInputStream("keystore.jks"), password);
+			ks.load(new FileInputStream("/home/tom/certs/keystore.jks"), password);
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
 			kmf.init(ks, password);
 
-			TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-  			tmf.init(ks);
+			//TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+  			//tmf.init(ks);
 
 			ctx = SSLContext.getInstance("TLSv1.2");
 			ctx.init(kmf.getKeyManagers(), null, null);
@@ -75,6 +75,9 @@ public class SSLRouteServer {
 			) {
 			info("SSLRouteServer listening on port "+PORT);
 			server.setReuseAddress(true);
+
+			server.setEnabledCipherSuites(server.getSupportedCipherSuites());
+			
 			while (true) {
 				try {
 					// wait for client connection...
