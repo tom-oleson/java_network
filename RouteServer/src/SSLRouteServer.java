@@ -9,7 +9,7 @@ import javax.net.ssl.*;
 // test: 
 // $ javac SSLRouteServer.java
 // $ java SSLRouteServer
-// $ nc localhost 9000
+// $ openssl s_client -connect localhost:9000
 
 public class SSLRouteServer {
 
@@ -48,16 +48,20 @@ public class SSLRouteServer {
 
 		try {
 
-			char[] password = "password".toCharArray();
+			char[] password = "changeit$".toCharArray();
 			KeyStore ks = KeyStore.getInstance("JKS");
-			ks.load(new FileInputStream("keystore"), password);
+			ks.load(new FileInputStream("keystore.jks"), password);
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
 			kmf.init(ks, password);
 
+			TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+  			tmf.init(ks);
+
 			ctx = SSLContext.getInstance("TLSv1.2");
+			ctx.init(kmf.getKeyManagers(), null, null);
 			ssf = ctx.getServerSocketFactory();
 
-		} catch (IOException | KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException ex) {
+		} catch (IOException | KeyStoreException | KeyManagementException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException ex) {
 				err(ex.getMessage());
 				return;
 		}

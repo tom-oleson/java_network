@@ -1,0 +1,9 @@
+
+
+#convert pem to keystore
+openssl x509 -outform der -in emv.sibisystems.pem -out emv.sibisystems.der :
+keytool -import -trustcacerts -noprompt -alias emv_sibi_pem -keystore keystore.jks -storepass changeit$ -file emv.sibisystems.der
+
+# check the contents of the keystore
+keytool -list -v -keystore keystore.jks -storepass changeit$
+
