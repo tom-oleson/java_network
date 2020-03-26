@@ -8,8 +8,8 @@ import javax.net.ssl.*;
 
 // test: 
 // $ javac SSLRouteServer.java
-// $ java SSLRouteServer
-// $ openssl s_client -connect localhost:9000 -servername localhost CAfile ./cert.pem
+// $ java -Djavax.net.debug=ssl:handshake:verbose:keymanager:trustmanager -Djava.security.debug=access:stack SSLRouteServer
+// $ openssl s_client -connect localhost:9000 -servername localhost -CAfile ./cert.pem
 
 public class SSLRouteServer {
 
@@ -43,21 +43,30 @@ public class SSLRouteServer {
 		info(String.format("server.port=%d, socket.timeout=%d, pool.threads=%d, tps.server=%s, tps.port=%d",
 			PORT, SOCKET_TIMEOUT, POOL_THREADS, tps_server, tps_port));
 
+		String ks_password = "changeit$";
+		String ks_path = "/home/tom/certs/keystore.jks";
+
+		System.setProperty("javax.net.ssl.keyStore", ks_path);
+		System.setProperty("javax.net.ssl.keyStorePassword", ks_password);
+		//System.setProperty("javax.net.ssl.trustStore", ks_path);
+    	//System.setProperty("javax.net.ssl.trustStorePassword",ks_password);
+
 		SSLContext ctx = null;
 		SSLServerSocketFactory ssf = null;
 
 		try {
+			char[] password = ks_password.toCharArray();
 
-			char[] password = "changeit$".toCharArray();
 			KeyStore ks = KeyStore.getInstance("JKS");
-			ks.load(new FileInputStream("/home/tom/certs/keystore.jks"), password);
+			ks.load(new FileInputStream(ks_path), password);
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
 			kmf.init(ks, password);
 
-			//TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-  			//tmf.init(ks);
+			TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+  			tmf.init(ks);
 
 			ctx = SSLContext.getInstance("TLSv1.2");
+			//ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
 			ctx.init(kmf.getKeyManagers(), null, null);
 			ssf = ctx.getServerSocketFactory();
 
@@ -73,11 +82,17 @@ public class SSLRouteServer {
 		try (
 			SSLServerSocket server = (SSLServerSocket) ssf.createServerSocket(PORT); 
 			) {
+
+			info("Enabled Cipher Suites:");
+			server.setEnabledCipherSuites(server.getSupportedCipherSuites());	
+			for(String cipher_name : server.getEnabledCipherSuites()) {
+				info(cipher_name);
+			}
+
 			info("SSLRouteServer listening on port "+PORT);
 			server.setReuseAddress(true);
 
-			server.setEnabledCipherSuites(server.getSupportedCipherSuites());
-			
+
 			while (true) {
 				try {
 					// wait for client connection...

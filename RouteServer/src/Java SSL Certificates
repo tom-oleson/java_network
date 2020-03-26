@@ -13,18 +13,8 @@ keytool -import -noprompt -trustcacerts -alias ${cert.alias} -file
 ${cert.file} -keystore ${keystore.file} -storepass ${keystore.pass}
 
 
-keytool -import -noprompt -trustcacerts -alias ${cert.alias} -file 
-${cert.file} -keystore ${keystore.file} -storepass ${keystore.pass}
-
-
-
-
--Djavax.net.ssl.keyStore=./keystore
-
-
-https://stackoverflow.com/questions/2138940/import-pem-into-java-key-store
-
 ==============================
+https://stackoverflow.com/questions/2138940/import-pem-into-java-key-store
 
 I'm always forgetting how to do this because it's something that I just do once in a while, this is one possible solution, and it just works:
 
@@ -44,7 +34,7 @@ I'm always forgetting how to do this because it's something that I just do once 
     System.setProperty("javax.net.ssl.trustStore", "GlobalSignRootCA.jks");
     System.setProperty("javax.net.ssl.trustStorePassword","trustStorePassword");
 
-The other option for step 2 is to just using the keytool command. Bellow is an example with a chain of certificates:
+The other option for step 2 is to just use the keytool command. Below is an example with a chain of certificates:
 
 $ keytool -import -file org.eu.crt -alias orgcrt -keystore globalsignrs.jks
 $ keytool -import -file GlobalSignOrganizationValidationCA-SHA256-G2.crt -alias globalsignorgvalca -keystore globalsignrs.jks
@@ -56,20 +46,24 @@ $ keytool -import -file GlobalSignRootCA.crt -alias globalsignrootca -keystore g
 
 If you need to check the information within a certificate, or Java keystore, use these commands.
 
-    Check a stand-alone certificate
+    Print a stand-alone certificate
+    $ keytool -printcert -v -file mydomain.crt
 
-    keytool -printcert -v -file mydomain.crt
+    List certificates in a Java keystore
+    $ keytool -list -v -keystore keystore.jks
 
-    Check which certificates are in a Java keystore
+    List a particular keystore entry using an alias
+    $ keytool -list -v -keystore keystore.jks -alias mydomain
 
-    keytool -list -v -keystore keystore.jks
-
-    Check a particular keystore entry using an alias
-
-    keytool -list -v -keystore keystore.jks -alias mydomain
+    List certcs in cacerts (password: changeit) usually in $JAVA_HOME/jre/lib/security
+    $ keytool -list -v -cacerts
 
 
 =============================
-Create a self-signed cert...
+Create a self-signed certicate
 
 openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout key.pem -out cert.pem
+
+
+
+
