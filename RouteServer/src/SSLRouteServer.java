@@ -44,7 +44,7 @@ public class SSLRouteServer {
 			PORT, SOCKET_TIMEOUT, POOL_THREADS, tps_server, tps_port));
 
 		String ks_password = "changeit$";
-		String ks_path = "/home/tom/certs/keystore.jks";
+		String ks_path = "keystore.jks";
 
 		System.setProperty("javax.net.ssl.keyStore", ks_path);
 		System.setProperty("javax.net.ssl.keyStorePassword", ks_password);
