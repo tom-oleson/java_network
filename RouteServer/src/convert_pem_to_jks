@@ -56,5 +56,10 @@ openssl s_client -cipher 'TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384' -state -nbio -c
 openssl s_client -cipher ECDH+aRSA+GCM+HIGH -state -nbio -tls1 -connect localhost:9000 -servername emv.sibisystems.com -CAfile dev.emv.sibisystems.pem
 
 
+========================================================================
+java -Djavax.net.debug=ssl:handshake:verbose:keymanager:trustmanager -Djava.security.debug=access:stack SSLRouteServer
+
+
+
 ====================================================
 https://www.java.com/en/jre-jdk-cryptoroadmap.html

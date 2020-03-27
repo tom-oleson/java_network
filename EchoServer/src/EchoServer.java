@@ -10,9 +10,18 @@ import java.util.concurrent.*;
 
 public class EchoServer {
 
-	public final static int PORT = 4000;
-	public static final int SOCKET_TIMEOUT = 30000;
-	public static final int POOL_THREADS = 3;
+	public static int PORT = 4000;
+	public static int SOCKET_TIMEOUT = 180000;
+	public static int POOL_THREADS = 3;
+
+
+	public static int getIntProperty(String key, int def) {
+		String value = System.getProperty(key);
+		if(value != null) {
+			return Integer.parseInt(value);
+		}
+		return def;
+	}
 
 	public static void info(String s) {
 		System.out.println(System.currentTimeMillis()+" ["+Thread.currentThread().getId()+"] info: "+s);
@@ -152,6 +161,13 @@ public class EchoServer {
 	}
 
 	public static void main(String[] args) {
+
+		PORT = getIntProperty("server.port", PORT);
+		SOCKET_TIMEOUT = getIntProperty("socket.timeout", SOCKET_TIMEOUT);
+		POOL_THREADS = getIntProperty("pool.threads", POOL_THREADS);	
+
+		info(String.format("server.port=%d, socket.timeout=%d, pool.threads=%d",
+			PORT, SOCKET_TIMEOUT, POOL_THREADS));
 
 		// create a pool of threads...
 		ExecutorService pool = Executors.newFixedThreadPool(POOL_THREADS);

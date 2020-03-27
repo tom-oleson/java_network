@@ -17,7 +17,7 @@ public class RouteServer {
 	static final char EOT = 0x04;
 
 	static String tps_server = "localhost";
-	static int tps_port = 4000;
+	static int tps_port = 4001;
 
 
 	public static int getIntProperty(String key, int def) {
