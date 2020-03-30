@@ -4,6 +4,7 @@ HOST=localhost
 PORT=4000
 BIN_FILE=/dev/shm/bin_out
 BIN_RESPONSE=/dev/shm/bin_resp
+TIMEOUT=2
 
 echo host=$HOST, port=$PORT
 
@@ -15,6 +16,6 @@ cat $file
 cat $BIN_FILE | hexdump -C
 echo ----
 echo $file Response:
-cat $BIN_FILE | nc -w30 $HOST $PORT > $BIN_RESPONSE && ./bin2hex.sh $BIN_RESPONSE && echo && hexdump -C $BIN_RESPONSE
+cat $BIN_FILE | nc -w$TIMEOUT $HOST $PORT > $BIN_RESPONSE && ./bin2hex.sh $BIN_RESPONSE && echo && hexdump -C $BIN_RESPONSE
 echo ====
 
