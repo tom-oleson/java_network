@@ -5,12 +5,12 @@ PORT=4000
 
 echo host=$HOST, port=$PORT
 
-for f in request1 request2 request3 request4 request5
+for file in request1 request2 request3 request4 request5
 do
-        echo $f Request
-	./hex2bin.sh $f > bin_out
+        echo $file Request
+	./hex2bin.sh $file > /dev/shm/bin_out
 	cat /dev/shm/bin_out | hexdump -C
-	echo $f Response
+	echo $file Response
 	cat /dev/shm/bin_out | nc -N $HOST $PORT | hexdump -C 
 done
 
