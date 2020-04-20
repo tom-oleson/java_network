@@ -1,3 +1,4 @@
 #!/bin/bash
-scp *.class tpsadmin@172.25.1.13:~/sibi/Router
-scp test/* tpsadmin@172.25.1.13:~/sibi/Router
+javac *.java
+scp *.class tpsadmin@172.25.3.51:~/sibi/Router
+scp test/* tpsadmin@172.25.3.51:~/sibi/Router/test
