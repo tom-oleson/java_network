@@ -64,6 +64,25 @@ Create a self-signed certicate
 
 openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout key.pem -out cert.pem
 
+--OR--
+
+openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout key.pem -out cert.pem
 
 
+
+=========================================================================
+
+SSL X.509 Certificate
+
++ Has a Public Key
++ Has a Certificate Authority Signature
+
+Common Name (CN) must be the domain name of the site.
+CN=www.efx.com (by convention also works for naked domain: efx.com)
+
+
+
+Chain of Trust
+==============
+my_cert --> ca_cert --> ca_root_cert
 
