@@ -211,8 +211,6 @@ public class SSLRouteServer {
 		BufferedInputStream route_bis = null;
 		BufferedOutputStream route_bos = null;
 
-		long tid;	// thread id
-
 		RouteTask(Socket connection) {
 			this.connection = connection;
 		}
