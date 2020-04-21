@@ -8,7 +8,7 @@ import javax.net.ssl.*;
 
 // convert combined.pem to pkcs12 then import to a java keystore
 // $ openssl pkcs12 -export -in combined.pem -out cert.p12 -passout pass:changeit
-// $ rm cert.jks &&  keytool -importkeystore -srcstorepass changeit -srckeystore cert.p12 -srcstoretype pkcs12 -deststorepass changeit -destkeystore combined.jks
+// $ rm combined.jks &&  keytool -importkeystore -srcstorepass changeit -srckeystore cert.p12 -srcstoretype pkcs12 -deststorepass changeit -destkeystore combined.jks
 //
 // see the contents of the combined keystore
 // $ keytool -list -v -keystore combined.jks
