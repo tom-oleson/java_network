@@ -1,12 +1,12 @@
-## convert combined.pem to pkcs12 then import to a java keystore
+# convert combined.pem to pkcs12 then import to a java keystore:
 $ openssl pkcs12 -export -in combined.pem -out cert.p12 -passout pass:changeit
 $ rm combined.jks &&  keytool -importkeystore -srcstorepass changeit -srckeystore cert.p12 -srcstoretype pkcs12 -deststorepass changeit -destkeystore combined.jks
 
 
-## see the contents of the combined keystore
+# see the contents of the combined keystore:
 $ keytool -list -v -keystore combined.jks
 
-## test: 
+# test: 
 $ javac SSLRouteServer.java
 $ java -Djavax.net.debug=all -Djava.security.debug=access:stack SSLRouteServer
 $ openssl s_client -connect localhost:9000 -servername localhost -CAfile ./combined.pem
