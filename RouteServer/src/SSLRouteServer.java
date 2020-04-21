@@ -55,8 +55,6 @@ public class SSLRouteServer {
 
 		System.setProperty("javax.net.ssl.keyStore", ks_path);
 		System.setProperty("javax.net.ssl.keyStorePassword", ks_password);
-		//System.setProperty("javax.net.ssl.trustStore", ks_path);
-    	//System.setProperty("javax.net.ssl.trustStorePassword",ks_password);
 
 		SSLContext ctx = null;
 		SSLServerSocketFactory ssf = null;
@@ -68,12 +66,7 @@ public class SSLRouteServer {
 			ks.load(new FileInputStream(ks_path), password);
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
 			kmf.init(ks, password);
-
-			//TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-  			//tmf.init(ks);
-
 			ctx = SSLContext.getInstance("TLSv1.2");
-			//ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
 			ctx.init(kmf.getKeyManagers(), null, null);
 			ssf = ctx.getServerSocketFactory();
 
