@@ -6,10 +6,17 @@ import java.util.*;
 import java.util.concurrent.*;
 import javax.net.ssl.*;
 
+// convert combined.pem to pkcs12 then import to a java keystore
+// $ openssl pkcs12 -export -in combined.pem -out cert.p12 -passout pass:changeit
+// $ rm cert.jks &&  keytool -importkeystore -srcstorepass changeit -srckeystore cert.p12 -srcstoretype pkcs12 -deststorepass changeit -destkeystore combined.jks
+//
+// see the contents of the combined keystore
+// $ keytool -list -v -keystore combined.jks
+
 // test: 
 // $ javac SSLRouteServer.java
-// $ java -Djavax.net.debug=ssl:handshake:verbose:keymanager:trustmanager -Djava.security.debug=access:stack SSLRouteServer
-// $ openssl s_client -connect localhost:9000 -servername localhost -CAfile ./cert.pem
+// $ java -Djavax.net.debug=all -Djava.security.debug=access:stack SSLRouteServer
+// $ openssl s_client -connect localhost:9000 -servername localhost -CAfile ./combined.pem
 
 public class SSLRouteServer {
 
@@ -43,8 +50,8 @@ public class SSLRouteServer {
 		info(String.format("server.port=%d, socket.timeout=%d, pool.threads=%d, tps.server=%s, tps.port=%d",
 			PORT, SOCKET_TIMEOUT, POOL_THREADS, tps_server, tps_port));
 
-		String ks_password = "changeit$";
-		String ks_path = "/home/tom/certs/keystore.jks";
+		String ks_password = "changeit";
+		String ks_path = "./combined.jks";
 
 		System.setProperty("javax.net.ssl.keyStore", ks_path);
 		System.setProperty("javax.net.ssl.keyStorePassword", ks_password);
@@ -62,8 +69,8 @@ public class SSLRouteServer {
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
 			kmf.init(ks, password);
 
-			TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-  			tmf.init(ks);
+			//TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+  			//tmf.init(ks);
 
 			ctx = SSLContext.getInstance("TLSv1.2");
 			//ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
@@ -89,6 +96,8 @@ public class SSLRouteServer {
 				info(cipher_name);
 			}
 
+			printServerSocketInfo(server);
+
 			info("SSLRouteServer listening on port "+PORT);
 			server.setReuseAddress(true);
 
@@ -96,9 +105,11 @@ public class SSLRouteServer {
 			while (true) {
 				try {
 					// wait for client connection...
-					Socket connection = server.accept();
+					SSLSocket connection = (SSLSocket) server.accept();
 					connection.setSoTimeout(SOCKET_TIMEOUT);
 					connection.setReuseAddress(true);
+
+					printSocketInfo(connection);
 
 					// create task to process client socket
 					Callable<Void> task = new RouteTask(connection);
@@ -120,6 +131,30 @@ public class SSLRouteServer {
 	public static void err(String s) {
 		System.err.println(System.currentTimeMillis()+" ["+Thread.currentThread().getId()+"] error: "+s);
 	}
+ 
+    public static void printServerSocketInfo(SSLServerSocket s) {
+      info("Server socket class: "+s.getClass());
+      info("   Socket address = "+s.getInetAddress().toString());
+      info("   Socket port = "+s.getLocalPort());
+      info("   Need client authentication = "+s.getNeedClientAuth());
+      info("   Want client authentication = "+s.getWantClientAuth());
+      info("   Use client mode = "+s.getUseClientMode());
+	}
+
+   private static void printSocketInfo(SSLSocket s) {
+      info("Socket class: "+s.getClass());
+      info("   Remote address = "+s.getInetAddress().toString());
+      info("   Remote port = "+s.getPort());
+      info("   Local socket address = "+s.getLocalSocketAddress().toString());
+      info("   Local address = "+s.getLocalAddress().toString());
+      info("   Local port = "+s.getLocalPort());
+      info("   Need client authentication = "+s.getNeedClientAuth());
+      
+      SSLSession ss = s.getSession();
+      info("   Cipher suite = "+ss.getCipherSuite());
+      info("   Protocol = "+ss.getProtocol());
+   }
+
 
 	public static String formatHexRecord(byte[] bytes, int offset, int sz) {
 		StringBuilder builder = new StringBuilder();

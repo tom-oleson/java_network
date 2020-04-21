@@ -54,4 +54,6 @@ dkms.conf
 *.class
 console-output
 pid
+*.pem
+*.jks
 

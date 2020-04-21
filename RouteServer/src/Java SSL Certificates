@@ -86,3 +86,25 @@ Chain of Trust
 ==============
 my_cert --> ca_cert --> ca_root_cert
 
+
+#combine private key and certificate(s)
+cat private_key.pem cert.pem >combined.pem
+
+#convert combined.pem to pkcs12 then import to a java keystore
+openssl pkcs12 -export -in combined.pem -out cert.p12 -passout pass:changeit
+
+rm cert.jks &&  keytool -importkeystore -srcstorepass changeit -srckeystore cert.p12 -srcstoretype pkcs12 -deststorepass changeit -destkeystore cert.jks
+
+keytool -list -v -keystore cert.jks
+
+
+
+
+If you don't have the root CA certificate:
+==========================================
+Go to your favourite browser and download the main certificate from the secured website.
+
+Execute the two following lines of code:
+
+$ openssl x509 -outform der -in GlobalSignRootCA.crt -out GlobalSignRootCA.der
+$ keytool -import -alias GlobalSignRootCA -keystore GlobalSignRootCA.jks -file GlobalSignRootCA.der
