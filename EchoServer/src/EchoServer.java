@@ -10,7 +10,7 @@ import java.util.concurrent.*;
 
 public class EchoServer {
 
-	public static int PORT = 4000;
+	public static int PORT = 4001;
 	public static int SOCKET_TIMEOUT = 180000;
 	public static int POOL_THREADS = 3;
 

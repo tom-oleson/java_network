@@ -24,7 +24,7 @@ public class SSLRouteServer {
 	static ServerSocket sslServerSocket;
 
 	static String tps_server = "localhost";
-	static int tps_port = 4000;
+	static int tps_port = 4001;
 
 	static boolean run = true;
 
@@ -154,8 +154,6 @@ public class SSLRouteServer {
 			// wait a bit before we check status again...
 			sleep(10000);
 		}
-
-
 	} 
 
 	static void shutdown() {
@@ -267,7 +265,6 @@ public class SSLRouteServer {
 		}
 
 		public static int readBytes(BufferedInputStream bis, byte[] buf, int sz) throws IOException {
-
 			// read until we get data or an error...
 			int num_bytes = 0;
 			while(true) {
