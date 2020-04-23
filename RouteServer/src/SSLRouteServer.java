@@ -6,29 +6,27 @@ import java.util.*;
 import java.util.concurrent.*;
 import javax.net.ssl.*;
 
-// convert combined.pem to pkcs12 then import to a java keystore
-// $ openssl pkcs12 -export -in combined.pem -out cert.p12 -passout pass:changeit
-// $ rm combined.jks &&  keytool -importkeystore -srcstorepass changeit -srckeystore cert.p12 -srcstoretype pkcs12 -deststorepass changeit -destkeystore combined.jks
-//
-// see the contents of the combined keystore
-// $ keytool -list -v -keystore combined.jks
-
 // test: 
 // $ javac SSLRouteServer.java
-// $ java -Djavax.net.debug=all -Djava.security.debug=access:stack SSLRouteServer
-// $ openssl s_client -connect localhost:9000 -servername localhost -CAfile ./combined.pem
+// $ java SSLRouteServer
+// $ nc localhost 9000
 
 public class SSLRouteServer {
 
 	public static int PORT = 9000;
+	public static int SSL_PORT = 4000;
 	public static int SOCKET_TIMEOUT = 180000;
 	public static int POOL_THREADS = 200;
 
 	static final char EOT = 0x04;
 
+	static ServerSocket serverSocket;
+	static ServerSocket sslServerSocket;
+
 	static String tps_server = "localhost";
 	static int tps_port = 4000;
 
+	static boolean run = true;
 
 	public static int getIntProperty(String key, int def) {
 		String value = System.getProperty(key);
@@ -38,9 +36,14 @@ public class SSLRouteServer {
 		return def;
 	}
 
+	public static void sleep(int millis) {
+		try { Thread.sleep(millis); } catch (InterruptedException ex) {	}
+	}
+
 	public static void main(String[] args) {
 
 		PORT = getIntProperty("server.port", PORT);
+		SSL_PORT = getIntProperty("server.ssl.port", SSL_PORT);
 		SOCKET_TIMEOUT = getIntProperty("socket.timeout", SOCKET_TIMEOUT);
 		POOL_THREADS = getIntProperty("pool.threads", POOL_THREADS);
 
@@ -50,72 +53,133 @@ public class SSLRouteServer {
 		info(String.format("server.port=%d, socket.timeout=%d, pool.threads=%d, tps.server=%s, tps.port=%d",
 			PORT, SOCKET_TIMEOUT, POOL_THREADS, tps_server, tps_port));
 
-		String ks_password = "changeit";
-		String ks_path = "./combined.jks";
-
-		System.setProperty("javax.net.ssl.keyStore", ks_path);
-		System.setProperty("javax.net.ssl.keyStorePassword", ks_password);
-
-		SSLContext ctx = null;
-		SSLServerSocketFactory ssf = null;
-
-		try {
-			char[] password = ks_password.toCharArray();
-
-			KeyStore ks = KeyStore.getInstance("JKS");
-			ks.load(new FileInputStream(ks_path), password);
-			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-			kmf.init(ks, password);
-			ctx = SSLContext.getInstance("TLSv1.2");
-			ctx.init(kmf.getKeyManagers(), null, null);
-			ssf = ctx.getServerSocketFactory();
-
-		} catch (IOException | KeyStoreException | KeyManagementException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException ex) {
-				err(ex.getMessage());
-				return;
-		}
 
 		// create a pool of threads...
 		ExecutorService pool = Executors.newFixedThreadPool(POOL_THREADS);
 
-		// create server socket
-		try (
-			SSLServerSocket server = (SSLServerSocket) ssf.createServerSocket(PORT); 
-			) {
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdown()));
 
-			info("Enabled Cipher Suites:");
-			server.setEnabledCipherSuites(server.getSupportedCipherSuites());	
-			for(String cipher_name : server.getEnabledCipherSuites()) {
-				info(cipher_name);
+		Thread server_thread = new Thread( () -> {
+			// create SSL server socket
+			try (ServerSocket server = new ServerSocket(PORT) ) {
+				info("started TransactionRouter listening on port "+PORT);
+				server.setReuseAddress(true);
+				while (run && !server.isClosed()) {
+					try {
+						// wait for client connection...
+						Socket connection = server.accept();
+						connection.setSoTimeout(SOCKET_TIMEOUT);
+						connection.setReuseAddress(true);
+
+						// save for shutdown...
+						serverSocket = server;
+
+						// create task to process client socket
+						Callable<Void> task = new RouteTask(connection);
+
+						// submit to thread pool...
+						pool.submit(task);
+
+					} catch (Exception ex) { err(ex.getMessage()); }
+				} 
+			} catch (IOException ex) {
+				err("could not start server: "+ex.getMessage());
+			}
+			run = false;
+		});
+
+
+		Thread ssl_server_thread = new Thread( () -> {
+
+			SSLContext ctx = null;
+			SSLServerSocketFactory ssf = null;
+
+			String ks_password = "changeit";
+			String ks_path = "./combined.jks";
+
+			System.setProperty("javax.net.ssl.keyStore", ks_path);
+			System.setProperty("javax.net.ssl.keyStorePassword", ks_password);			
+
+			try {
+				char[] password = ks_password.toCharArray();
+
+				KeyStore ks = KeyStore.getInstance("JKS");
+				ks.load(new FileInputStream(ks_path), password);
+				KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+				kmf.init(ks, password);
+				ctx = SSLContext.getInstance("TLSv1.2");
+				ctx.init(kmf.getKeyManagers(), null, null);
+				ssf = ctx.getServerSocketFactory();
+
+			} catch (IOException | KeyStoreException | KeyManagementException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException ex) {
+					err(ex.getMessage());
+					run = false;
+					System.exit(-1);
 			}
 
-			printServerSocketInfo(server);
+			// create SSL server socket
+			try ( SSLServerSocket server = (SSLServerSocket) ssf.createServerSocket(SSL_PORT) ) {
+				info("started SSL TransactionRouter listening on port "+SSL_PORT);
+				server.setReuseAddress(true);
+				while (run && !server.isClosed()) {
+					try {
+						// wait for client connection...
+						Socket connection = server.accept();
+						connection.setSoTimeout(SOCKET_TIMEOUT);
+						connection.setReuseAddress(true);
 
-			info("SSLRouteServer listening on port "+PORT);
-			server.setReuseAddress(true);
+						// save for shutdown...
+						sslServerSocket = server;
+						
+						// create task to process client socket
+						Callable<Void> task = new RouteTask(connection);
+
+						// submit to thread pool...
+						pool.submit(task);
+
+					} catch (Exception ex) { err(ex.getMessage()); }
+				} 
+			} catch (IOException ex) {
+				err("could not start SSL server: "+ex.getMessage());
+			}
+			run = false;
+		});
+
+		server_thread.start();
+		ssl_server_thread.start();
 
 
-			while (true) {
-				try {
-					// wait for client connection...
-					SSLSocket connection = (SSLSocket) server.accept();
-					connection.setSoTimeout(SOCKET_TIMEOUT);
-					connection.setReuseAddress(true);
+		while(run) {
 
-					printSocketInfo(connection);
-
-					// create task to process client socket
-					Callable<Void> task = new RouteTask(connection);
-
-					// submit to thread pool...
-					pool.submit(task);
-
-				} catch (Exception ex) { err(ex.getMessage()); }
-			} 
-		} catch (IOException ex) {
-			err("could not start server: "+ex.getMessage());
+			// wait a bit before we check status again...
+			sleep(10000);
 		}
+
+
 	} 
+
+	static void shutdown() {
+		if(sslServerSocket != null) {
+			try {
+				sslServerSocket.close();
+				sslServerSocket = null;
+				info("SSL server socket closed");
+			} catch (IOException e) {
+				// nothing is needed to be logger here, we are shutting down
+			}
+		}
+
+		if(serverSocket != null) {
+			try {
+				serverSocket.close();
+				serverSocket = null;
+				info("server socket closed");
+			} catch (IOException e) {
+				// nothing is needed to be logger here, we are shutting down
+			}
+		}
+
+	}
 
 	public static void info(String s) {
 		System.out.println(System.currentTimeMillis()+" ["+Thread.currentThread().getId()+"] info: "+s);
@@ -124,30 +188,6 @@ public class SSLRouteServer {
 	public static void err(String s) {
 		System.err.println(System.currentTimeMillis()+" ["+Thread.currentThread().getId()+"] error: "+s);
 	}
- 
-    public static void printServerSocketInfo(SSLServerSocket s) {
-      info("Server socket class: "+s.getClass());
-      info("   Socket address = "+s.getInetAddress().toString());
-      info("   Socket port = "+s.getLocalPort());
-      info("   Need client authentication = "+s.getNeedClientAuth());
-      info("   Want client authentication = "+s.getWantClientAuth());
-      info("   Use client mode = "+s.getUseClientMode());
-	}
-
-   private static void printSocketInfo(SSLSocket s) {
-      info("Socket class: "+s.getClass());
-      info("   Remote address = "+s.getInetAddress().toString());
-      info("   Remote port = "+s.getPort());
-      info("   Local socket address = "+s.getLocalSocketAddress().toString());
-      info("   Local address = "+s.getLocalAddress().toString());
-      info("   Local port = "+s.getLocalPort());
-      info("   Need client authentication = "+s.getNeedClientAuth());
-      
-      SSLSession ss = s.getSession();
-      info("   Cipher suite = "+ss.getCipherSuite());
-      info("   Protocol = "+ss.getProtocol());
-   }
-
 
 	public static String formatHexRecord(byte[] bytes, int offset, int sz) {
 		StringBuilder builder = new StringBuilder();
@@ -211,6 +251,8 @@ public class SSLRouteServer {
 		BufferedInputStream route_bis = null;
 		BufferedOutputStream route_bos = null;
 
+		long tid;	// thread id
+
 		RouteTask(Socket connection) {
 			this.connection = connection;
 		}
@@ -239,10 +281,6 @@ public class SSLRouteServer {
 		public static void writeBytes(BufferedOutputStream bos, byte[] buf, int sz) throws IOException {
 			bos.write(buf, 0, sz);
 			bos.flush();
-		}
-
-		public static void sleep(int millis) {
-			try { Thread.sleep(millis); } catch (InterruptedException ex) {	}
 		}
 
 		public int routeData(byte[] data, int sz) throws IOException {
