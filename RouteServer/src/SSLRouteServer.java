@@ -53,7 +53,6 @@ public class SSLRouteServer {
 		info(String.format("server.port=%d, socket.timeout=%d, pool.threads=%d, tps.server=%s, tps.port=%d",
 			PORT, SOCKET_TIMEOUT, POOL_THREADS, tps_server, tps_port));
 
-
 		// create a pool of threads...
 		ExecutorService pool = Executors.newFixedThreadPool(POOL_THREADS);
 
@@ -310,7 +309,7 @@ public class SSLRouteServer {
 		@Override
 		public Void call() {
 
-			info("Running thread for "+connection.toString()+" [connection timeout="+SOCKET_TIMEOUT+"]");
+			info("Incoming connection: "+connection.toString()+" [connection timeout="+SOCKET_TIMEOUT+"]");
 			
 			try {
 				// get streams to the connected client...
