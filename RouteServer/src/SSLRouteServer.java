@@ -96,8 +96,9 @@ public class SSLRouteServer {
 			String ks_password = "changeit";
 			String ks_path = "./combined.jks";
 
-			System.setProperty("javax.net.ssl.keyStore", ks_path);
-			System.setProperty("javax.net.ssl.keyStorePassword", ks_password);			
+			System.getProperty("javax.net.ssl.keyStore", ks_path);
+			System.getProperty("javax.net.ssl.keyStorePassword", ks_password);
+
 
 			try {
 				char[] password = ks_password.toCharArray();
