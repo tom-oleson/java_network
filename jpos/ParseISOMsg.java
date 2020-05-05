@@ -15,14 +15,12 @@ public class ParseISOMsg {
 
         // Create a scanner to wrap the standard input stream
         Scanner scanner = new Scanner(System.in);
-        
-        // Read the hex string from standard input
         String hex_msg = scanner.nextLine();
 
         ISOMsg iso_msg = new ISOMsg();
-        GenericPackager packager = new GenericPackager(
-                iso_msg.getClass().getClassLoader().getResourceAsStream("basic.xml")
-        );
+        GenericPackager packager = 
+            new GenericPackager(iso_msg.getClass().getClassLoader().getResourceAsStream("basic.xml"));
+
         // set the packager for the message
         iso_msg.setPackager(packager);
 
