@@ -1,7 +1,9 @@
-import org.jpos.iso.packager.ISO87BPackager;
+import org.jpos.iso.packager.GenericPackager;
 import org.jpos.iso.ISOException;
 import org.jpos.iso.ISOMsg;
 import org.jpos.iso.ISOUtil;
+
+import java.util.Scanner;
 
 
 // run with:
@@ -10,15 +12,27 @@ import org.jpos.iso.ISOUtil;
 
 public class ParseISOMsg {
     public static void main(String[] args) throws ISOException {
-        String hexmsg = args[0];
+
+        // Create a scanner to wrap the standard input stream
+        Scanner scanner = new Scanner(System.in);
+        
+        // Read the hex string from standard input
+        String hex_msg = scanner.nextLine();
+
+        ISOMsg iso_msg = new ISOMsg();
+        GenericPackager packager = new GenericPackager(
+                iso_msg.getClass().getClassLoader().getResourceAsStream("basic.xml")
+        );
+        // set the packager for the message
+        iso_msg.setPackager(packager);
+
         // convert hex string to byte array
-        byte[] bmsg =ISOUtil.hex2byte(hexmsg);
-        ISOMsg m = new ISOMsg();
-        // set packager, change ISO87BPackager for the matching one.
-        m.setPackager(new ISO87BPackager());
+        byte[] msg_bytes =ISOUtil.hex2byte(hex_msg);
+
         //unpack the message using the packager
-        m.unpack(bmsg);
-        //dump the message to standar output
-        m.dump(System.out, "");
+        iso_msg.unpack(msg_bytes);
+
+        //dump the message to standard output
+        iso_msg.dump(System.out, "");
     }
 }
