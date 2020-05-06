@@ -1,7 +1,7 @@
 #!/bin/bash
 
-HOST=localhost
-PORT=9000
+HOST=172.25.3.51
+PORT=19076
 BIN_FILE=/dev/shm/bin_out
 BIN_RESPONSE=/dev/shm/bin_resp
 TIMEOUT=2
