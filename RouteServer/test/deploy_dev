@@ -1,0 +1,2 @@
+#!/bin/bash
+scp * tpsadmin@172.25.3.51:~/sibi/Router/test

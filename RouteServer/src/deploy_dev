@@ -1,4 +1,3 @@
 #!/bin/bash
 javac *.java
 scp *.class tpsadmin@172.25.3.51:~/sibi/Router
-scp test/* tpsadmin@172.25.3.51:~/sibi/Router/test
